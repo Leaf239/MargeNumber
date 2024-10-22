@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Number Merge Game</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f0f0f0;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+
+        #game-container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+
+        #grid {
+            display: grid;
+            grid-template-columns: repeat(6, 50px);
+            grid-template-rows: repeat(6, 50px);
+            gap: 5px;
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        .cell {
+            background-color: #ddd;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            user-select: none;
+            transition: transform 0.3s, opacity 0.3s;
+        }
+
+        .cell.drag-over {
+            background-color: #aaa;
+            transform: scale(1.1);
+        }
+
+        .fade-out {
+            transform: scale(0);
+            opacity: 0;
+        }
+
+        #queue {
+            display: flex;
+            gap: 5px;
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f5f5f5;
+            border-radius: 5px;
+        }
+
+        .queue-item {
+            width: 50px;
+            height: 50px;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: grab;
+            user-select: none;
+            transition: transform 0.3s, opacity 0.3s;
+        }
+
+        .queue-item:active {
+            cursor: grabbing;
+        }
+
+        .number-1 { background-color: #FFD700; }
+        .number-2 { background-color: #87CEEB; }
+        .number-3 { background-color: #98FB98; }
+        .number-4 { background-color: #FFA07A; }
+        .number-5 { background-color: #DDA0DD; }
+        .number-6 { background-color: #F08080; }
+        .number-7 { background-color: #20B2AA; }
+        .number-8 { background-color: #D8BFD8; }
+        .selected {
+            transform: scale(1.1);
+            box-shadow: 0 0 10px rgba(0,0,0,0.3);
+        }
+
+        .dragging {
+            opacity: 0.5;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="grid"></div>
+        <div id="queue"></div>
+    </div>
+
+    <script>
+        class NumberMergeGame {
+            constructor() {
+                this.grid = Array(6).fill().map(() => Array(6).fill(null));
+                this.queue = [];
+                this.selectedNumber = null;
+                this.gridElement = document.getElementById('grid');
+                this.queueElement = document.getElementById('queue');
+                this.draggedItem = null;
+                
+                if (!this.gridElement || !this.queueElement) {
+                    throw new Error('Required elements not found');
+                }
+                
+                this.initializeGame();
+            }
+
+            initializeGame() {
+                this.createGrid();
+                this.createQueue();
+                this.setupEventListeners();
+            }
+
+            createGrid() {
+                this.gridElement.innerHTML = '';
+                
+                for (let i = 0; i < 6; i++) {
+                    for (let j = 0; j < 6; j++) {
+                        const cell = document.createElement('div');
+                        cell.className = 'cell';
+                        cell.dataset.row = i;
+                        cell.dataset.col = j;
+                        this.setupCellDragEvents(cell);
+                        this.gridElement.appendChild(cell);
+                    }
+                }
+            }
+
+            setupCellDragEvents(cell) {
+                cell.addEventListener('dragenter', (e) => {
+                    e.preventDefault();
+                    if (this.draggedItem) {
+                        cell.classList.add('drag-over');
+                    }
+                });
+
+                cell.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                });
+
+                cell.addEventListener('dragleave', (e) => {
+                    cell.classList.remove('drag-over');
+                });
+
+                cell.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    cell.classList.remove('drag-over');
+                    if (this.draggedItem) {
+                        const index = parseInt(this.draggedItem.dataset.index);
+                        this.selectedNumber = index;
+                        this.handleCellClick(cell);
+                    }
+                });
+            }
+
+            createQueue() {
+                this.queue = Array(5).fill(0).map(() => this.generateNumber());
+                this.updateQueueDisplay();
+            }
+
+            generateNumber() {
+                return Math.floor(Math.random() * 4) + 1;
+            }
+
+            updateQueueDisplay() {
+                this.queueElement.innerHTML = '';
+                
+                this.queue.forEach((number, index) => {
+                    const item = document.createElement('div');
+                    item.className = `queue-item number-${number}`;
+                    if (index === this.selectedNumber) {
+                        item.classList.add('selected');
+                    }
+                    item.textContent = number;
+                    item.dataset.index = index;
+                    item.draggable = true;
+                    
+                    // 드래그 이벤트 설정
+                    item.addEventListener('dragstart', (e) => {
+                        this.draggedItem = item;
+                        item.classList.add('dragging');
+                        e.dataTransfer.setData('text/plain', index);
+                        this.selectedNumber = index;
+                    });
+
+                    item.addEventListener('dragend', (e) => {
+                        this.draggedItem = null;
+                        item.classList.remove('dragging');
+                    });
+
+                    item.addEventListener('click', () => this.handleQueueItemClick(index));
+                    this.queueElement.appendChild(item);
+                });
+            }
+
+            handleQueueItemClick(index) {
+                if (this.selectedNumber === index) {
+                    this.selectedNumber = null;
+                } else {
+                    this.selectedNumber = index;
+                }
+                this.updateQueueDisplay();
+            }
+
+            setupEventListeners() {
+                this.gridElement.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('cell')) {
+                        this.handleCellClick(e.target);
+                    }
+                });
+            }
+
+            handleCellClick(cell) {
+                if (this.selectedNumber === null) return;
+                
+                const row = parseInt(cell.dataset.row);
+                const col = parseInt(cell.dataset.col);
+                
+                if (isNaN(row) || isNaN(col)) return;
+                if (this.grid[row][col] !== null) return;
+                
+                const number = this.queue[this.selectedNumber];
+                this.grid[row][col] = number;
+                cell.textContent = number;
+                cell.className = `cell number-${number}`;
+                
+                this.queue[this.selectedNumber] = this.generateNumber();
+                this.selectedNumber = null;
+                this.updateQueueDisplay();
+
+                this.applyGravity();
+                this.checkAllMerges();
+            }
+
+            applyGravity() {
+                let moved = false;
+                for (let col = 0; col < 6; col++) {
+                    let emptyRow = 5;
+                    for (let row = 5; row >= 0; row--) {
+                        if (this.grid[row][col] !== null) {
+                            if (row < emptyRow) {
+                                this.grid[emptyRow][col] = this.grid[row][col];
+                                this.grid[row][col] = null;
+                                this.updateCell(emptyRow, col);
+                                this.updateCell(row, col);
+                                moved = true;
+                                emptyRow--;
+                            } else {
+                                emptyRow--;
+                            }
+                        }
+                    }
+                }
+                return moved;
+            }
+
+            updateCell(row, col) {
+                const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+                if (this.grid[row][col] !== null) {
+                    cell.textContent = this.grid[row][col];
+                    cell.className = `cell number-${this.grid[row][col]}`;
+                } else {
+                    cell.textContent = '';
+                    cell.className = 'cell';
+                }
+            }
+
+            checkAllMerges() {
+                let merged;
+                do {
+                    merged = false;
+                    for (let row = 0; row < 6; row++) {
+                        for (let col = 0; col < 6; col++) {
+                            if (this.grid[row][col] !== null) {
+                                if (this.mergeAdjacent(row, col)) {
+                                    merged = true;
+                                }
+                            }
+                        }
+                    }
+                    if (merged) {
+                        setTimeout(() => {
+                            this.applyGravity();
+                            this.checkAllMerges();
+                        }, 300);
+                    }
+                } while (merged);
+            }
+
+            mergeAdjacent(row, col) {
+                const number = this.grid[row][col];
+                const adjacentPositions = [
+                    [row-1, col], [row+1, col], [row, col-1], [row, col+1]
+                ];
+                
+                const toMerge = adjacentPositions.filter(([r, c]) => {
+                    return r >= 0 && r < 6 && c >= 0 && c < 6 && 
+                           this.grid[r][c] === number;
+                });
+
+                if (toMerge.length > 0) {
+                    const totalMergeValue = toMerge.length * number;
+                    
+                    toMerge.forEach(([r, c]) => {
+                        this.grid[r][c] = null;
+                        const mergeCell = document.querySelector(`[data-row="${r}"][data-col="${c}"]`);
+                        mergeCell.classList.add('fade-out');
+                        setTimeout(() => {
+                            mergeCell.textContent = '';
+                            mergeCell.className = 'cell';
+                        }, 300);
+                    });
+
+                    this.grid[row][col] += totalMergeValue;
+                    
+                    setTimeout(() => {
+                        this.updateCell(row, col);
+                    }, 300);
+
+                    return true;
+                }
+                return false;
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            new NumberMergeGame();
+        });
+    </script>
+</body>
+</html>
